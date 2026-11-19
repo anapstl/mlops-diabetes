@@ -1,5 +1,6 @@
+
 """
-MLflow model loader for the California Housing prediction API.
+MLflow model loader for the Diabetes prediction API.
 
 Owns the module-level _state dict, the load_champion_model() startup function,
 and two helpers (get_model, get_model_info) that endpoints call to access the
@@ -22,7 +23,7 @@ from mlflow import MlflowClient
 BASE_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_TRACKING_URI = BASE_DIR / "mlruns"
 
-MODEL_NAME = "california-housing-model"
+MODEL_NAME = "diabetes-progression-model"
 MODEL_ALIAS = "champion"
 MODEL_URI = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
 
@@ -57,32 +58,28 @@ def load_champion_model() -> None:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI.as_uri())
 
     logger.info("Loading model from registry: %s", MODEL_URI)
+
     try:
         client = MlflowClient()
         mv = client.get_model_version_by_alias(MODEL_NAME, MODEL_ALIAS)
 
-        # Build the artifact path from known components instead of following the
-        # stored artifact_uri, which is an absolute host path and breaks in Docker.
-
-
-        """         run = client.get_run(mv.run_id)
-        model_path = (
-            MLFLOW_TRACKING_URI / run.info.experiment_id / mv.run_id / "artifacts" / "model"
-        )
-        _state["model"] = mlflow.pyfunc.load_model(str(model_path)) """
-
         _state["model"] = mlflow.pyfunc.load_model(MODEL_URI)
-
         _state["model_version"] = str(mv.version)
         _state["run_id"] = mv.run_id
-        logger.info("Model loaded — version=%s  run_id=%s", mv.version, mv.run_id)
+
+        logger.info(
+            "Model loaded — version=%s  run_id=%s",
+            mv.version,
+            mv.run_id,
+        )
+
     except Exception as exc:
-        # logger.error("Failed to load model: %s", exc)
         logger.exception("Failed to load model")
         raise RuntimeError(
             f"Could not load '{MODEL_URI}'. "
             "Run evaluate_model.py first to assign the 'champion' alias."
         ) from exc
+
 
 # ---------------------------------------------------------------------------
 # Helpers — safe accessors for _state used by the API endpoints
@@ -93,6 +90,7 @@ def get_model():
     """Return the loaded model, or raise HTTP 503 if startup has not completed."""
     if _state["model"] is None:
         raise HTTPException(status_code=503, detail="Model not loaded.")
+
     return _state["model"]
 
 
@@ -100,6 +98,7 @@ def get_model_info() -> dict:
     """Return registry metadata for the loaded model, or raise HTTP 503 if not ready."""
     if _state["model"] is None:
         raise HTTPException(status_code=503, detail="Model not loaded.")
+
     return {
         "model_name": MODEL_NAME,
         "version": _state["model_version"],

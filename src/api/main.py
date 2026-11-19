@@ -1,7 +1,8 @@
+
 """
 FastAPI application that serves predictions from the MLflow champion model.
 
-Loads the model registered under 'california-housing-model@champion' at startup
+Loads the model registered under 'diabetes-progression-model@champion' at startup
 and exposes three endpoints: a health check, model metadata, and a predict route.
 """
 
@@ -16,9 +17,9 @@ and exposes three endpoints: a health check, model metadata, and a predict route
 #      lifespan context so every request hits an already-warm model in memory.
 #   2. Pydantic validation — the input schema is declared explicitly; FastAPI rejects
 #      malformed requests automatically before they reach the model.
-#   3. Alias-based loading — we load 'models:/california-housing-model@champion' instead
-#      of a hard-coded version number, so promoting a new champion in the registry
-#      is enough to update what the API serves (requires a restart).
+#   3. Alias-based loading — we load 'models:/diabetes-progression-model@champion'
+#      instead of a hard-coded version number, so promoting a new champion in the
+#      registry is enough to update what the API serves (requires a restart).
 
 import logging
 from contextlib import asynccontextmanager
@@ -33,7 +34,7 @@ from .model import (
     get_model_info,
     load_champion_model,
 )
-from .schemas import FEATURE_COLUMNS, HousingFeatures, PredictionResponse
+from .schemas import FEATURE_COLUMNS, DiabetesFeatures, PredictionResponse
 
 # ---------------------------------------------------------------------------
 # Logging — configure once for the whole application at entry point
@@ -58,12 +59,13 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down — releasing model from memory.")
     _state["model"] = None
 
+
 # ---------------------------------------------------------------------------
 # App & endpoints — FastAPI instance and the three API routes
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="California Housing Price API",
+    title="Diabetes Progression Prediction API",
     description="Serves predictions from the MLflow champion model.",
     version="1.0.0",
     lifespan=lifespan,
@@ -83,14 +85,14 @@ def model_info() -> dict:
 
 
 @app.post("/predict")
-def predict(features: HousingFeatures) -> PredictionResponse:
-    """Return a price prediction for a single housing record.
+def predict(features: DiabetesFeatures) -> PredictionResponse:
+    """Return a diabetes disease progression prediction for one patient.
 
     Args:
-        features: The 11 engineered feature values for one house.
+        features: The 13 engineered feature values for one patient.
 
     Returns:
-        PredictionResponse with the predicted median house value (in $100k)
+        PredictionResponse with the predicted disease progression score
         and the model version that produced it.
     """
     model = get_model()
@@ -104,4 +106,8 @@ def predict(features: HousingFeatures) -> PredictionResponse:
 
     result = float(prediction[0])
     logger.info("Prediction: %.4f", result)
-    return PredictionResponse(prediction=result, model_version=_state["model_version"])
+
+    return PredictionResponse(
+        prediction=result,
+        model_version=_state["model_version"],
+    )

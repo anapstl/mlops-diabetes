@@ -1,7 +1,8 @@
-"""
-Pydantic schemas for the California Housing prediction API.
 
-Defines the input model (HousingFeatures) and the output model (PredictionResponse)
+"""
+Pydantic schemas for the Diabetes prediction API.
+
+Defines the input model (DiabetesFeatures) and the output model (PredictionResponse)
 used by FastAPI to validate requests and serialise responses automatically.
 """
 
@@ -12,17 +13,19 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 
 FEATURE_COLUMNS = [
-    "MedInc",
-    "HouseAge",
-    "AveRooms",
-    "AveBedrms",
-    "Population",
-    "AveOccup",
-    "Latitude",
-    "Longitude",
-    "rooms_per_household",
-    "bedrooms_per_room",
-    "log_population",
+    "age",
+    "sex",
+    "bmi",
+    "bp",
+    "s1",
+    "s2",
+    "s3",
+    "s4",
+    "s5",
+    "s6",
+    "bmi_age_interaction",
+    "bp_bmi_interaction",
+    "s1_s2_ratio",
 ]
 
 # ---------------------------------------------------------------------------
@@ -30,24 +33,26 @@ FEATURE_COLUMNS = [
 # ---------------------------------------------------------------------------
 
 
-class HousingFeatures(BaseModel):
-    """Input: the 11 engineered feature values for one house (excluding MedHouseVal)."""
+class DiabetesFeatures(BaseModel):
+    """Input: the 13 engineered feature values for one patient (excluding target)."""
 
-    MedInc: float
-    HouseAge: float
-    AveRooms: float
-    AveBedrms: float
-    Population: float
-    AveOccup: float
-    Latitude: float
-    Longitude: float
-    rooms_per_household: float
-    bedrooms_per_room: float
-    log_population: float
+    age: float
+    sex: float
+    bmi: float
+    bp: float
+    s1: float
+    s2: float
+    s3: float
+    s4: float
+    s5: float
+    s6: float
+    bmi_age_interaction: float
+    bp_bmi_interaction: float
+    s1_s2_ratio: float
 
 
 class PredictionResponse(BaseModel):
-    """Output: predicted median house value (in $100k) and the model version that answered."""
+    """Output: predicted diabetes disease progression and the model version used."""
 
     prediction: float
     model_version: str
