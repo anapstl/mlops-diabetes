@@ -1,0 +1,37 @@
+# Git
+.git/
+
+# Notebooks
+notebooks
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Variables de entorno y secretos
+.env
+.env.*
+
+# Editor y sistema
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Datos que no necesita la API
+data/
+
+# Cachés y archivos temporales
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.log

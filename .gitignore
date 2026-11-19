@@ -1,0 +1,59 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Variables de entorno y secretos
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# MLflow: experimentos, métricas y modelos registrados
+mlruns/
+mlartifacts/
+mlflow.db
+
+# Datasets generados o descargados
+data/raw/
+data/processed/
+
+# Modelos y artefactos serializados
+*.pkl
+*.pickle
+*.joblib
+*.skops
+*.onnx
+
+# Cachés de herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Cobertura de tests
+.coverage
+htmlcov/
+
+# Logs y archivos temporales
+*.log
+*.tmp
+*.bak
+
+# Distribuciones y empaquetado
+build/
+dist/
+*.egg-info/
