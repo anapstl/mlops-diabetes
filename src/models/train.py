@@ -1,5 +1,6 @@
+
 """
-This module trains two regression models on the California Housing dataset
+This module trains three regression models on the Diabetes dataset
 and tracks every run with MLflow Experiment Tracking.
 
 For each model the script logs hyperparameters, evaluation metrics and the
@@ -9,8 +10,8 @@ serialised model artifact so runs can be compared in the MLflow UI.
 # MLOps concept:
 # Experiment Tracking answers the question "what did I try and how well did it work?".
 # Instead of keeping results in a spreadsheet, MLflow records every run automatically:
-# the code version, hyperparameters, metrics and the model artifact itself.
-# After running this script, open `mlflow ui` and compare both runs side-by-side.
+# hyperparameters, metrics and the model artifact itself.
+# After running this script, open `mlflow ui` and compare the runs side-by-side.
 
 import logging
 from datetime import datetime
@@ -19,7 +20,7 @@ from pathlib import Path
 import mlflow
 import mlflow.sklearn
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
@@ -32,8 +33,8 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 INPUT_PATH = BASE_DIR / "data" / "processed" / "train_features_v1.csv"
 MLFLOW_TRACKING_URI = BASE_DIR / "mlruns"
 
-EXPERIMENT_NAME = "california-housing"
-TARGET = "MedHouseVal"
+EXPERIMENT_NAME = "diabetes"
+TARGET = "target"
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
@@ -133,15 +134,6 @@ def run_experiment(model, model_type: str, params: dict,
         - ``model_type``: class name of the estimator
         - ``dataset``: source file name
         - ``stage``: always ``"training"`` for this script
-
-    Args:
-        model: An unfitted scikit-learn estimator.
-        model_type: Short label used in the run name and ``model_type`` tag.
-        params: Hyperparameter dict to log with ``mlflow.log_params``.
-        X_train: Training feature matrix.
-        X_test: Test feature matrix.
-        y_train: Training target series.
-        y_test: Test target series.
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"{model_type}_{timestamp}"
@@ -175,12 +167,16 @@ def run_experiment(model, model_type: str, params: dict,
 
         # --- Artifact -------------------------------------------------------
         # registered_model_name=None: registry is handled by register_model.py
+        model_kwargs = {}
+        if isinstance(model, (RandomForestRegressor, GradientBoostingRegressor)):
+            model_kwargs["skops_trusted_types"] = ["sklearn.tree._tree.Tree"]
+
         mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=None,
             input_example=X_train.head(5),
-            skops_trusted_types=["sklearn.tree._tree.Tree"],
+            **model_kwargs,
         )
         logger.info("[%s] Model artifact logged.", model_type)
 
@@ -190,7 +186,7 @@ def run_experiment(model, model_type: str, params: dict,
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    """Run the full experiment tracking pipeline for both models."""
+    """Run the full experiment tracking pipeline for three models."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI.as_uri())
     mlflow.set_experiment(EXPERIMENT_NAME)
     logger.info("MLflow tracking URI : %s", MLFLOW_TRACKING_URI)
@@ -200,7 +196,7 @@ def main() -> None:
     X_train, X_test, y_train, y_test = split_data(df)
 
     # --- Model 1: LinearRegression -----------------------------------------
-    # Baseline model with no hyperparameters — quick to fit and easy to interpret.
+    # Baseline model with no tuned hyperparameters.
     run_experiment(
         model=LinearRegression(),
         model_type="LinearRegression",
@@ -210,12 +206,25 @@ def main() -> None:
     )
 
     # --- Model 2: RandomForestRegressor ------------------------------------
-    # Ensemble model that typically outperforms the linear baseline on this
-    # dataset due to non-linear interactions between features.
     run_experiment(
-        model=RandomForestRegressor(n_estimators=100, max_depth=15, random_state=RANDOM_STATE),
+        model=RandomForestRegressor(
+            n_estimators=100,
+            random_state=RANDOM_STATE,
+        ),
         model_type="RandomForestRegressor",
-        params={"n_estimators": 100, "max_depth": 15, "random_state": RANDOM_STATE},
+        params={
+            "n_estimators": 100,
+            "random_state": RANDOM_STATE,
+        },
+        X_train=X_train, X_test=X_test,
+        y_train=y_train, y_test=y_test,
+    )
+
+    # --- Model 3: GradientBoostingRegressor --------------------------------
+    run_experiment(
+        model=GradientBoostingRegressor(random_state=RANDOM_STATE),
+        model_type="GradientBoostingRegressor",
+        params={"random_state": RANDOM_STATE},
         X_train=X_train, X_test=X_test,
         y_train=y_train, y_test=y_test,
     )

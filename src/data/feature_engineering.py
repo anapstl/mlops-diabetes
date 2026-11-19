@@ -1,10 +1,9 @@
+
 """
-This module applies feature engineering to the cleaned dataset.
-It creates new features, applies transformations, and saves the result
-ready for model training.
+This module applies feature engineering to the cleaned Diabetes dataset.
+It creates new features and saves the result ready for model training.
 """
 
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
@@ -22,29 +21,20 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     """Apply feature engineering steps and return the enriched DataFrame.
 
     New features created:
-    - rooms_per_household: AveRooms / AveOccup (rooms per occupant on average)
-    - bedrooms_per_room: AveBedrms / AveRooms (bedroom fraction of total rooms)
-    - log_population: log(Population + 1) to reduce skewness
+    - bmi_age_interaction: interaction between BMI and age
+    - bp_bmi_interaction: interaction between blood pressure and BMI
+    - s1_s2_ratio: ratio between two serum measurements
     """
     df = df.copy()
 
-    # Ratio of average rooms to average occupancy (rooms available per occupant)
-    # Use np.where to avoid division by zero (returns 0 when denominator is 0)
-    df["rooms_per_household"] = np.where(
-        df["AveOccup"] != 0,
-        df["AveRooms"] / df["AveOccup"],
-        0,
-    )
+    # Interaction between BMI and age
+    df["bmi_age_interaction"] = df["bmi"] * df["age"]
 
-    # Ratio of bedrooms to total rooms
-    df["bedrooms_per_room"] = np.where(
-        df["AveRooms"] != 0,
-        df["AveBedrms"] / df["AveRooms"],
-        0,
-    )
+    # Interaction between blood pressure and BMI
+    df["bp_bmi_interaction"] = df["bp"] * df["bmi"]
 
-    # Log transformation of Population to reduce the effect of large values
-    df["log_population"] = np.log1p(df["Population"])
+    # Ratio of serum measurements (avoid division by zero)
+    df["s1_s2_ratio"] = df["s1"] / (df["s2"] + 1e-9)
 
     return df
 

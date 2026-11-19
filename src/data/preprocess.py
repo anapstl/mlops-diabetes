@@ -1,15 +1,15 @@
+
 """
-This module cleans the raw dataset by handling missing values,
-fixing data types, and removing outliers.
+This module cleans the raw Diabetes dataset by handling missing values,
+removing duplicates, and fixing data types.
 It outputs a processed dataset ready for machine learning.
 """
 
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-RAW_PATH = BASE_DIR / "data" / "raw" / "housing_dataset.csv"
+RAW_PATH = BASE_DIR / "data" / "raw" / "diabetes_dataset.csv"
 PROCESSED_PATH = BASE_DIR / "data" / "processed" / "train_v1.csv"
 
 
@@ -19,33 +19,28 @@ def load_data(path: Path) -> pd.DataFrame:
 
 
 def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
-    """Fill missing values in MedInc and AveRooms with their median."""
-    for col in ["MedInc", "AveRooms"]:
-        if col in df.columns:
-            df[col] = df[col].fillna(df[col].median())
-    return df
+    """Remove rows containing missing values."""
+    return df.dropna()
+
+
+def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicate rows from the dataset."""
+    return df.drop_duplicates()
 
 
 def fix_data_types(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert HouseAge to float, coercing errors to NaN."""
-    if "HouseAge" in df.columns:
-        df["HouseAge"] = pd.to_numeric(df["HouseAge"], errors="coerce")
-    return df
-
-
-def handle_outliers(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove rows where Population exceeds the 99th percentile."""
-    if "Population" in df.columns:
-        threshold = df["Population"].quantile(0.99)
-        df = df[df["Population"] < threshold]
+    """Convert all columns to numeric types."""
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col])
     return df
 
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """Apply all cleaning steps and return the cleaned DataFrame."""
+    df = df.copy()
     df = handle_missing_values(df)
+    df = remove_duplicates(df)
     df = fix_data_types(df)
-    df = handle_outliers(df)
     return df
 
 

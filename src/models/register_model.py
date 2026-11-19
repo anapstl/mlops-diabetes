@@ -1,16 +1,18 @@
+
 """
-This module registers the best run from the MLflow experiment "california-housing"
+This module registers the best run from the MLflow experiment "diabetes"
 into the MLflow Model Registry.
 
 It searches all runs in the experiment, selects the one with the lowest RMSE,
-and registers that model under the name "california-housing-model".
+and registers that model under the name "diabetes-progression-model".
+
+The champion alias is assigned only if the model passes the quality gate.
 """
 
 # MLOps concept:
-# The Model Registry is a central store for versioned models. After tracking
-# experiments, we promote the best run's model artifact so it can be referenced
-# by name and stage (None → Staging → Production) without coupling consumers
-# to a specific run ID.
+# The Model Registry is a central store for versioned models.
+# The champion alias identifies the approved model version without coupling
+# consumers to a specific run ID or version number.
 
 import logging
 from pathlib import Path
@@ -20,8 +22,9 @@ from mlflow.tracking import MlflowClient
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_TRACKING_URI = BASE_DIR / "mlruns"
-EXPERIMENT_NAME = "california-housing"
-REGISTERED_MODEL_NAME = "california-housing-model"
+EXPERIMENT_NAME = "diabetes"
+REGISTERED_MODEL_NAME = "diabetes-progression-model"
+MAX_RMSE = 65.0
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,21 +55,21 @@ def get_best_run(client: MlflowClient, experiment_name: str) -> mlflow.entities.
 
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],
-        filter_string="status = 'FINISHED'",
+        filter_string="status = 'FINISHED' AND metrics.rmse >= 0",
         order_by=["metrics.rmse ASC"],
         max_results=1,
     )
 
     if not runs:
         raise ValueError(
-            f"No finished runs found in experiment '{experiment_name}'."
+            f"No finished runs with RMSE found in experiment '{experiment_name}'."
         )
 
     best = runs[0]
     logger.info(
         "Best run selected — id: %s  rmse: %.4f  model_type: %s",
         best.info.run_id,
-        best.data.metrics.get("rmse", float("nan")),
+        best.data.metrics["rmse"],
         best.data.tags.get("model_type", "unknown"),
     )
     return best
@@ -136,8 +139,36 @@ def add_model_description(
     logger.info("Description added to model version.")
 
 
+def assign_champion(
+    client: MlflowClient,
+    run: mlflow.entities.Run,
+    model_version: mlflow.entities.model_registry.ModelVersion,
+) -> None:
+    """Assign the champion alias only if the RMSE passes the quality gate."""
+    rmse = run.data.metrics["rmse"]
+
+    if rmse < MAX_RMSE:
+        client.set_registered_model_alias(
+            name=model_version.name,
+            alias="champion",
+            version=model_version.version,
+        )
+        logger.info(
+            "Quality gate passed (RMSE %.4f < %.1f). Champion assigned to version %s.",
+            rmse,
+            MAX_RMSE,
+            model_version.version,
+        )
+    else:
+        logger.warning(
+            "Quality gate failed (RMSE %.4f >= %.1f). Champion not updated.",
+            rmse,
+            MAX_RMSE,
+        )
+
+
 def main() -> None:
-    """Find the best run in the california-housing experiment and register it."""
+    """Find the best run in the diabetes experiment and register it."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI.as_uri())
     client = MlflowClient()
 
@@ -146,6 +177,7 @@ def main() -> None:
 
     model_version = register_model(client, best_run, REGISTERED_MODEL_NAME)
     add_model_description(client, best_run, model_version)
+    assign_champion(client, best_run, model_version)
 
     logger.info(
         "Done. Model '%s' version %s is now in the registry.",

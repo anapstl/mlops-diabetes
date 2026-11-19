@@ -1,29 +1,31 @@
+
 """
 This module validates the dataset using Pydantic models to ensure data structure
 and types before preprocessing.
 """
 
-from typing import Optional
-
 import pandas as pd
 from pydantic import BaseModel, ValidationError
 
 
-class HousingData(BaseModel):
-    """Pydantic model representing a single row of housing data."""
+class DiabetesData(BaseModel):
+    """Pydantic model representing a single row of diabetes data."""
 
-    MedInc: Optional[float]       # median income in block group
-    HouseAge: float               # median house age in block group
-    AveRooms: Optional[float]     # average number of rooms per household
-    AveBedrms: Optional[float]    # average number of bedrooms per household
-    Population: float             # block group population
-    AveOccup: Optional[float]     # average number of household members
-    Latitude: float               # block group latitude
-    Longitude: float              # block group longitude
+    age: float       # age
+    sex: float       # sex
+    bmi: float       # body mass index
+    bp: float        # average blood pressure
+    s1: float        # total serum cholesterol
+    s2: float        # low-density lipoproteins
+    s3: float        # high-density lipoproteins
+    s4: float        # total cholesterol / HDL ratio
+    s5: float        # log of serum triglycerides
+    s6: float        # blood sugar level
+    target: float    # disease progression measure
 
 
 def validate_row(row: dict, index: int) -> bool:
-    """Try to validate a single row against the HousingData model.
+    """Try to validate a single row against the DiabetesData model.
 
     Args:
         row: A dictionary representing one row of the dataset.
@@ -33,7 +35,7 @@ def validate_row(row: dict, index: int) -> bool:
         True if the row is valid, False otherwise.
     """
     try:
-        HousingData(**row)
+        DiabetesData(**row)
         return True
     except ValidationError as e:
         print(f"Row {index} failed validation: {e}")
@@ -64,7 +66,7 @@ def validate_dataset(df: pd.DataFrame) -> None:
 
 def main():
     """Load the raw dataset and run validation."""
-    path = "data/raw/housing_dataset.csv"
+    path = "data/raw/diabetes_dataset.csv"
     print(f"Loading dataset from: {path}")
     df = pd.read_csv(path)
     validate_dataset(df)
