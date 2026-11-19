@@ -6,7 +6,8 @@ into the MLflow Model Registry.
 It searches all runs in the experiment, selects the one with the lowest RMSE,
 and registers that model under the name "diabetes-progression-model".
 
-The champion alias is assigned only if the model passes the quality gate.
+The registered model is evaluated separately in evaluate_model.py,
+which assigns the champion alias if the quality gate is passed.
 """
 
 # MLOps concept:
@@ -24,7 +25,6 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_TRACKING_URI = BASE_DIR / "mlruns"
 EXPERIMENT_NAME = "diabetes"
 REGISTERED_MODEL_NAME = "diabetes-progression-model"
-MAX_RMSE = 65.0
 
 logging.basicConfig(
     level=logging.INFO,
@@ -139,34 +139,6 @@ def add_model_description(
     logger.info("Description added to model version.")
 
 
-def assign_champion(
-    client: MlflowClient,
-    run: mlflow.entities.Run,
-    model_version: mlflow.entities.model_registry.ModelVersion,
-) -> None:
-    """Assign the champion alias only if the RMSE passes the quality gate."""
-    rmse = run.data.metrics["rmse"]
-
-    if rmse < MAX_RMSE:
-        client.set_registered_model_alias(
-            name=model_version.name,
-            alias="champion",
-            version=model_version.version,
-        )
-        logger.info(
-            "Quality gate passed (RMSE %.4f < %.1f). Champion assigned to version %s.",
-            rmse,
-            MAX_RMSE,
-            model_version.version,
-        )
-    else:
-        logger.warning(
-            "Quality gate failed (RMSE %.4f >= %.1f). Champion not updated.",
-            rmse,
-            MAX_RMSE,
-        )
-
-
 def main() -> None:
     """Find the best run in the diabetes experiment and register it."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI.as_uri())
@@ -177,14 +149,12 @@ def main() -> None:
 
     model_version = register_model(client, best_run, REGISTERED_MODEL_NAME)
     add_model_description(client, best_run, model_version)
-    assign_champion(client, best_run, model_version)
 
     logger.info(
         "Done. Model '%s' version %s is now in the registry.",
         model_version.name,
         model_version.version,
     )
-
 
 if __name__ == "__main__":
     main()

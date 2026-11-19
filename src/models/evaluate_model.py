@@ -1,17 +1,18 @@
+
 """
 This module formally evaluates the latest version of the registered model
-"california-housing-model" using mlflow.evaluate().
+"diabetes-progression-model" using mlflow.evaluate().
 
-Results are logged to a dedicated MLflow run. If the model passes the quality
-thresholds (rmse < 0.6 and r2 > 0.7) the alias "champion" is assigned to that
+Results are logged to a dedicated MLflow run. If the model passes the
+quality threshold (RMSE < 65), the alias "champion" is assigned to that
 model version, marking it as the go-to model for serving.
 """
 
 # MLOps concept:
 # Model Evaluation answers the question "is this model good enough to serve?".
-# mlflow.evaluate() goes beyond ad-hoc metric logging: it produces a structured
-# EvaluationResult (metrics + artifacts) attached to a run, enabling reproducible
-# quality gates. Aliases replace the deprecated Stage system in MLflow 2.9+:
+# mlflow.evaluate() produces a structured EvaluationResult (metrics + artifacts)
+# attached to a run, enabling reproducible quality gates.
+# Aliases replace the deprecated Stage system in MLflow 2.9+:
 # instead of transitioning to "Production", we assign a human-readable alias
 # ("champion") that consumers can reference without knowing the version number.
 
@@ -20,7 +21,6 @@ from datetime import datetime
 from pathlib import Path
 
 import mlflow
-import mlflow.sklearn
 import pandas as pd
 from mlflow.tracking import MlflowClient
 from sklearn.model_selection import train_test_split
@@ -33,15 +33,14 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 INPUT_PATH = BASE_DIR / "data" / "processed" / "train_features_v1.csv"
 MLFLOW_TRACKING_URI = BASE_DIR / "mlruns"
 
-EXPERIMENT_NAME = "california-housing"
-REGISTERED_MODEL_NAME = "california-housing-model"
-TARGET = "MedHouseVal"
+EXPERIMENT_NAME = "diabetes"
+REGISTERED_MODEL_NAME = "diabetes-progression-model"
+TARGET = "target"
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
-# Quality thresholds for the "champion" alias
-RMSE_THRESHOLD = 0.6
-R2_THRESHOLD = 0.7
+# Quality threshold for the "champion" alias
+RMSE_THRESHOLD = 65.0
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -77,14 +76,20 @@ def load_test_data(path: Path) -> tuple[pd.DataFrame, pd.Series]:
             f"Input file not found: {path}\n"
             "Run the data pipeline first: python src/data/feature_engineering.py"
         )
+
     df = pd.read_csv(path)
     logger.info("Loaded %d rows from %s", len(df), path)
 
     X = df.drop(columns=[TARGET])
     y = df[TARGET]
+
     _, X_test, _, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE
+        X,
+        y,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
     )
+
     logger.info("Test set size: %d rows", len(X_test))
     return X_test, y_test
 
@@ -94,33 +99,35 @@ def load_test_data(path: Path) -> tuple[pd.DataFrame, pd.Series]:
 # ---------------------------------------------------------------------------
 
 def get_latest_version(client: MlflowClient, model_name: str) -> str:
-    """Return the version number of the most recently registered model version.
-
-    Searches all versions and returns the one with the highest version integer.
+    """Return the version number of the most recently registered model.
 
     Args:
         client: An active MlflowClient instance.
         model_name: Registered model name.
 
     Returns:
-        Version number as a string (e.g. ``"3"``).
+        Version number as a string.
 
     Raises:
         ValueError: If no versions exist for the given model name.
     """
     versions = client.search_model_versions(f"name='{model_name}'")
+
     if not versions:
         raise ValueError(
             f"No versions found for registered model '{model_name}'.\n"
             "Run register_model.py first."
         )
+
     latest = max(versions, key=lambda v: int(v.version))
+
     logger.info(
         "Latest version of '%s': %s (run_id: %s)",
         model_name,
         latest.version,
         latest.run_id,
     )
+
     return latest.version
 
 
@@ -134,9 +141,9 @@ def evaluate_registered_model(
     X_test: pd.DataFrame,
     y_test: pd.Series,
 ) -> mlflow.models.EvaluationResult:
-    """Run mlflow.evaluate() on the registered model version and return results.
+    """Run mlflow.evaluate() on the registered model version.
 
-    Opens a new MLflow run tagged with ``stage="evaluation"`` so evaluation
+    Opens a new MLflow run tagged with stage="evaluation" so evaluation
     runs are visually separated from training runs in the UI.
 
     Args:
@@ -151,7 +158,6 @@ def evaluate_registered_model(
     model_uri = f"models:/{REGISTERED_MODEL_NAME}/{model_version}"
     logger.info("Evaluating model URI: %s", model_uri)
 
-    # mlflow.evaluate() requires a DataFrame that includes the target column
     eval_data = X_test.copy()
     eval_data[TARGET] = y_test.values
 
@@ -166,9 +172,6 @@ def evaluate_registered_model(
             "dataset": INPUT_PATH.name,
         })
 
-        # mlflow.evaluate() computes a standard regression metric suite and
-        # logs them automatically to the active run. The ``predictions`` column
-        # name is used internally by MLflow; we do not need to pass it manually.
         result = mlflow.evaluate(
             model=model_uri,
             data=eval_data,
@@ -189,31 +192,21 @@ def evaluate_registered_model(
 # ---------------------------------------------------------------------------
 
 def passes_quality_gate(metrics: dict) -> bool:
-    """Return True if the model meets the minimum quality thresholds.
+    """Return True if the model meets the quality threshold.
 
-    Thresholds:
-        - ``mean_squared_error`` (RMSE equivalent via sqrt): rmse < 0.6
-        - ``r2_score``: r2 > 0.7
-
-    mlflow.evaluate() for regressors logs ``mean_squared_error`` (MSE) and
-    ``r2_score`` by default. We derive RMSE from MSE for the gate check.
-
-    Args:
-        metrics: Metrics dict from ``EvaluationResult.metrics``.
-
-    Returns:
-        True if both thresholds are satisfied, False otherwise.
+    MLflow provides mean_squared_error (MSE).
+    RMSE is calculated as the square root of MSE.
     """
-    # mlflow.evaluate() key for MSE is "mean_squared_error"
     mse = metrics.get("mean_squared_error", float("inf"))
     rmse = mse ** 0.5
-    r2 = metrics.get("r2_score", float("-inf"))
 
     logger.info(
-        "Quality gate check — rmse=%.4f (threshold < %.1f)  r2=%.4f (threshold > %.1f)",
-        rmse, RMSE_THRESHOLD, r2, R2_THRESHOLD,
+        "Quality gate check — rmse=%.4f (threshold < %.1f)",
+        rmse,
+        RMSE_THRESHOLD,
     )
-    return rmse < RMSE_THRESHOLD and r2 > R2_THRESHOLD
+
+    return rmse < RMSE_THRESHOLD
 
 
 def assign_champion_alias(
@@ -221,31 +214,28 @@ def assign_champion_alias(
     model_name: str,
     model_version: str,
 ) -> None:
-    """Assign the "champion" alias to a model version.
+    """Assign the champion alias to a model version.
 
-    In MLflow 2.9+ aliases replace stage transitions (Staging → Production).
-    Consumers can load the champion model with ``models:/name@champion``
-    without ever knowing the version number.
+    Consumers can load the champion model using models:/name@champion
+    without knowing its version number.
 
     If another version already holds the alias, MLflow moves it automatically.
-
-    Args:
-        client: An active MlflowClient instance.
-        model_name: Registered model name.
-        model_version: Version to promote.
     """
     client.set_registered_model_alias(
         name=model_name,
         alias="champion",
         version=model_version,
     )
+
     logger.info(
         "Alias 'champion' assigned to '%s' version %s.",
         model_name,
         model_version,
     )
+
     logger.info(
-        "Load the champion model with: mlflow.pyfunc.load_model('models:/%s@champion')",
+        "Load the champion model with: "
+        "mlflow.pyfunc.load_model('models:/%s@champion')",
         model_name,
     )
 
@@ -255,9 +245,10 @@ def assign_champion_alias(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    """Evaluate the latest registered model and promote it if it passes quality gates."""
+    """Evaluate the latest registered model and promote it if approved."""
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI.as_uri())
     mlflow.set_experiment(EXPERIMENT_NAME)
+
     logger.info("MLflow tracking URI : %s", MLFLOW_TRACKING_URI)
     logger.info("Registered model    : %s", REGISTERED_MODEL_NAME)
 
@@ -270,12 +261,21 @@ def main() -> None:
     X_test, y_test = load_test_data(INPUT_PATH)
 
     # --- Evaluate -----------------------------------------------------------
-    result = evaluate_registered_model(client, model_version, X_test, y_test)
+    result = evaluate_registered_model(
+        client,
+        model_version,
+        X_test,
+        y_test,
+    )
 
     # --- Quality gate -------------------------------------------------------
     if passes_quality_gate(result.metrics):
         logger.info("Model passed the quality gate.")
-        assign_champion_alias(client, REGISTERED_MODEL_NAME, model_version)
+        assign_champion_alias(
+            client,
+            REGISTERED_MODEL_NAME,
+            model_version,
+        )
     else:
         logger.warning(
             "Model version %s did NOT pass the quality gate. "
