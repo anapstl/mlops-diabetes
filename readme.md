@@ -32,20 +32,20 @@ mlops-diabetes/
 ├── data/
 │   ├── raw/
 │   │   └── diabetes_dataset.csv
-├── docs/
-│   ├── img/
-│   │   └── api-health-200.png
-│   │   └── api-model-info-200.png
-│   │   └── api-predict-200.png
-│   │   └── api-predict-error-422.png
-│   │   └── docker-desktop-diabetes.png
-│   │   └── github-actions-ci-pipeline.png
-│   │   └── mlflow_champion.png
-│   │   └── mlflow-experiments.png
-│   │   └── swagger-api.png
 │   └── processed/
 │       ├── train_v1.csv
 │       └── train_features_v1.csv
+├── docs/
+│   ├── img/
+│   │   ├── api-health-200.png
+│   │   ├── api-model-info-200.png
+│   │   ├── api-predict-200.png
+│   │   ├── api-predict-error-422.png
+│   │   ├── docker-desktop-diabetes.png
+│   │   ├── github-actions-ci-pipeline.png
+│   │   ├── mlflow_champion.png
+│   │   ├── mlflow-experiments.png
+│   │   └── swagger-api.png
 ├── notebooks/
 │   └── Proyecto_MLOps.ipynb
 ├── src/
@@ -314,37 +314,37 @@ The evaluation script only assigns the `champion` alias when the quality gate pa
 
 ## 11. Evidence and screenshots
 
-The following images can be added to document the results. Place the screenshots in a folder such as `docs/images/` and update the filenames to match the files actually committed to GitHub.
+The following screenshots document the experiment results, model registration, API behavior, Docker execution, and GitHub Actions pipeline.
 
 ### MLflow experiment tracking
 
-![MLflow experiment runs and model metrics](/docs/img/mlflow-experiments.png)
+![MLflow experiment runs and model metrics](docs/img/mlflow-experiments.png)
 
 *Figure 1. Comparison of training runs and their evaluation metrics in MLflow.*
 
 ### Registered champion model
 
-![MLflow registered model with champion alias](/docs/img/mlflow_champion.png)
+![MLflow registered model with champion alias](docs/img/mlflow_champion.png)
 
 *Figure 2. Registered model `diabetes-progression-model`, version 1, with the `champion` alias.*
 
 ### FastAPI predictions and validation
 
-![Successful FastAPI prediction](/docs/img/api-predict-200.png)
+![Successful FastAPI prediction](docs/img/api-predict-200.png)
 
 *Figure 3. Successful prediction request returning HTTP 200.*
 
-![FastAPI request validation error](/docs/img/api-predict-error-422.png)
+![FastAPI request validation error](docs/img/api-predict-error-422.png)
 
 *Figure 4. Invalid request rejected with HTTP 422.*
 
 ### Docker and CI
 
-![Running Docker container](/docs/img/docker-desktop-diabetes.png)
+![Running Docker container](docs/img/docker-desktop-diabetes.png)
 
 *Figure 5.  `mlops-diabetes-api` container in Docker Desktop.*
 
-![Successful GitHub Actions workflow](/docs/img/github-actions-ci-pipeline.png)
+![Successful GitHub Actions workflow](docs/img/github-actions-ci-pipeline.png)
 
 *Figure 6. Successful execution of the automated training pipeline in GitHub Actions.*
 
