@@ -36,7 +36,7 @@ jobs:
       - name: Validate data
         run: python src/data/validate_data.py
 
-      # Fill nulls, fix types, remove outliers
+      # Remove nulls and duplicates, ensure numeric types
       - name: Preprocess data
         run: python src/data/preprocess.py
 
